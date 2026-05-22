@@ -1,4 +1,5 @@
 from algoritmos import *
+import os
 
 def cargar_desde_archivo(ruta):
     grafo = {}
@@ -168,6 +169,12 @@ def menu():
         opcion = input("Opción: ").strip()
         if opcion not in [str(i) for i in range(8)]:
             print("Opción no válida.\n")
+    limite_dls = 10
+    if opcion == '4' or opcion == '0':
+        try:
+            limite_dls = int(input("\nLímite de profundidad para DLS (Enter para 10): "))
+        except ValueError:
+            limite_dls = 10
  
     if opcion == '1' or opcion == '0':
         camino = amplitud_bfs(inicio, meta, grafo)
@@ -180,13 +187,9 @@ def menu():
     if opcion == '3' or opcion == '0':
         camino = profundidad_dfs(inicio, meta, grafo)
         mostrar_resultado("Búsqueda por Profundidad (DFS)", camino)
-        
+
     if opcion == '4' or opcion == '0':
-        try:
-            limite = int(input("Límite de profundidad para DLS: "))
-        except ValueError:
-            limite = 10
-        camino, profundidad_real = profundidad_limitada_dls(inicio, meta, grafo, limite)
+        camino, profundidad_real = profundidad_limitada_dls(inicio, meta, grafo, limite_dls)
         mostrar_resultado("Búsqueda por Profundidad Limitada (DLS)", camino, limite=profundidad_real)
         
     if opcion == '5' or opcion == '0':
@@ -205,6 +208,7 @@ def menu():
 # Llamada al menu y saber si se repite o no
 if __name__ == '__main__':
     while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
         menu()
         otra = 'e'
         while(otra != 's' and otra != 'n'):
