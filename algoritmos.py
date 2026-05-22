@@ -69,7 +69,7 @@ def profundidad_limitada_dls(inicio, meta, grafo, limite):
             return None
         
         for vecino, _ in grafo.get(nodo, []):
-            if vecino not in camino:  # evita ciclos
+            if vecino not in camino:  #evita ciclos
                 resultado = dfs(vecino, profundidad + 1, camino + [vecino])
                 if resultado:
                     return resultado
@@ -79,37 +79,13 @@ def profundidad_limitada_dls(inicio, meta, grafo, limite):
         return resultado  #camino, profundidad_real
     return None, None
 
-def dls_verificacion(inicio, meta, grafo, limite):
-    def _dls_recursivo(nodo, meta, grafo, limite, camino, visitados):
-        if nodo == meta:
-            return camino
- 
-        if limite == 0:
-            return None  #Límite alcanzado, no se puede seguir
- 
-        visitados.add(nodo)
-        for vecino, _ in grafo.get(nodo, []):
-            if vecino not in visitados:
-                resultado = _dls_recursivo(
-                    vecino, meta, grafo, limite - 1,
-                    camino + [vecino], visitados
-                )
-                if resultado is not None:
-                    return resultado
-        visitados.discard(nodo)  #Backtracking: permite revisar desde otra rama
-        return None
-    return _dls_recursivo(inicio, meta, grafo, limite, [inicio], set())
-
-
-
 def profundidad_iterativa_iddfs(inicio, meta, grafo, limite_max=50):
     for limite in range(limite_max + 1):
-        resultado = dls_verificacion(inicio, meta, grafo, limite)
+        resultado, _ = profundidad_limitada_dls(inicio, meta, grafo, limite)
         if resultado is not None:
             return resultado, limite  #Retorna camino y el límite donde lo encontro
         
     return None, -1
- 
 
 def busqueda_avara(inicio, meta, grafo, heuristica):
     heap = [(heuristica.get(inicio, 0), inicio, [inicio])]
