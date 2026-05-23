@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIA — Visualizador de Búsqueda · FCFM</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #f5f4ef;
+    --surface:  #ffffff;
+    --border:   rgba(0,0,0,0.12);
+    --border2:  rgba(0,0,0,0.22);
+    --text:     #1a1a18;
+    --muted:    #6b6b67;
+    --canvas-bg:#1e1f23;
+    --amber50:  #FAEEDA; --amber600: #BA7517; --amber800: #633806;
+    --blue50:   #E6F1FB; --blue600:  #185FA5; --blue800:  #0C447C;
+    --teal50:   #E1F5EE; --teal600:  #0F6E56; --teal800:  #085041;
+    --purple50: #EEEDFE; --purple600:#534AB7; --purple800:#3C3489;
+    --green50:  #EAF3DE; --green600: #3B6D11; --green800: #27500A;
+    --gray50:   #F1EFE8; --gray600:  #5F5E5A; --gray800:  #2C2C2A;
+    --red50:    #FCEBEB; --red600:   #A32D2D;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    height: 48px;
+  }
+  header h1 { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  header span { font-size: 11px; color: var(--muted); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 268px 1fr;
+    height: calc(100vh - 48px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .section-title {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .field label { font-size: 11px; color: var(--muted); }
+  .field input, .field select {
+    padding: 6px 9px; font-size: 12px;
+    border: 1px solid var(--border2); border-radius: 7px;
+    background: var(--bg); color: var(--text);
+    outline: none; transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--blue600); }
+  .field textarea {
+    padding: 6px 9px; font-size: 11px; font-family: monospace;
+    border: 1px solid var(--border2); border-radius: 7px;
+    background: var(--bg); color: var(--text);
+    outline: none; resize: vertical;
+  }
+
+  .algo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .algo-btn {
+    padding: 7px 5px; font-size: 12px;
+    border: 1px solid var(--border2); border-radius: 7px;
+    background: transparent; color: var(--text);
+    cursor: pointer; text-align: center; transition: all .12s;
+  }
+  .algo-btn:hover { background: var(--bg); }
+  .algo-btn.active { background: var(--text); color: var(--surface); border-color: var(--text); }
+
+  #dls-group { display: none; }
+
+  .btn-primary {
+    width: 100%; padding: 9px; font-size: 13px; font-weight: 600;
+    background: var(--text); color: var(--surface);
+    border: none; border-radius: 7px; cursor: pointer; transition: opacity .12s;
+  }
+  .btn-primary:hover { opacity: .85; }
+  .btn-primary:disabled { opacity: .4; cursor: default; }
+
+  .status-box {
+    font-size: 11px; color: var(--muted); padding: 7px 9px;
+    background: var(--bg); border-radius: 7px; min-height: 32px; line-height: 1.5;
+  }
+  .status-box.error { color: var(--red600); background: var(--red50); }
+  .status-box.ok    { color: var(--green800); background: var(--green50); }
+
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid; }
+
+  /* ── Main ── */
+  .main {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    overflow: hidden;
+  }
+
+  .canvas-area {
+    position: relative;
+    overflow: hidden;
+    background: var(--canvas-bg);
+    cursor: grab;
+  }
+  .canvas-area:active { cursor: grabbing; }
+
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* zoom controls flotantes */
+  .zoom-controls {
+    position: absolute; bottom: 12px; right: 14px;
+    display: flex; gap: 5px; align-items: center;
+  }
+  .zoom-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.7); font-size: 15px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .12s; backdrop-filter: blur(4px);
+  }
+  .zoom-btn:hover { background: rgba(255,255,255,.15); }
+  #zoom-label {
+    font-size: 11px; color: rgba(255,255,255,.45);
+    min-width: 36px; text-align: center;
+  }
+
+  .hint {
+    position: absolute; top: 9px; right: 12px;
+    font-size: 10px; color: rgba(255,255,255,.3); pointer-events: none;
+  }
+
+  /* ── Bottom ── */
+  .bottom {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    max-height: 260px;
+  }
+
+  .controls-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .ctrl-btn {
+    padding: 4px 12px; font-size: 12px;
+    border: 1px solid var(--border2); border-radius: 6px;
+    background: transparent; color: var(--text);
+    cursor: pointer; transition: background .1s;
+  }
+  .ctrl-btn:hover { background: var(--bg); }
+  .ctrl-btn:disabled { opacity: .35; cursor: default; }
+  .ctrl-btn.auto-on { background: var(--text); color: var(--surface); }
+
+  #iter-label {
+    flex: 1; text-align: center; font-size: 11px;
+    color: var(--muted); min-width: 0;
+  }
+
+  .log-area {
+    display: grid; grid-template-columns: 1fr 1fr; overflow: hidden;
+  }
+  .log-panel { overflow-y: auto; border-right: 1px solid var(--border); }
+  .log-panel:last-child { border-right: none; }
+
+  .log-head {
+    position: sticky; top: 0; background: var(--surface);
+    padding: 4px 10px; font-size: 10px; font-weight: 600;
+    letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); border-bottom: 1px solid var(--border); z-index: 1;
+  }
+
+  .log-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .log-table th {
+    padding: 3px 9px; text-align: left; font-size: 10px; font-weight: 600;
+    color: var(--muted); background: var(--bg); letter-spacing: .05em;
+    border-bottom: 1px solid var(--border);
+  }
+  .log-table td {
+    padding: 4px 9px; border-bottom: 1px solid var(--border);
+    color: var(--text); vertical-align: middle;
+  }
+  .log-table tr.active-row td { background: #E6F1FB; }
+  .log-table tr:last-child td { border-bottom: none; }
+  .sep-row td {
+    background: var(--bg); color: var(--muted);
+    font-size: 10px; font-style: italic; padding: 3px 9px;
+  }
+
+  .f-node {
+    display: inline-block; padding: 2px 7px; border-radius: 20px;
+    font-size: 11px; border: 1px solid var(--border2); margin: 2px; background: var(--bg);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PIA — Visualizador de Algoritmos de Búsqueda</h1>
+  <span>FCFM · IA · Luis Segobia 2177528 · Angel Meraz 2067151</span>
+</header>
+
+<div class="layout">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div>
+      <div class="section-title">Fuente del grafo</div>
+      <div class="field">
+        <label>Tipo de carga</label>
+        <select id="fuente" onchange="toggleFuente()">
+          <option value="archivo">Archivo .txt</option>
+          <option value="manual">Ingreso manual</option>
+        </select>
+      </div>
+
+      <div id="grupo-archivo">
+        <div class="field">
+          <label>Carpeta de grafos</label>
+          <input id="carpeta" value="grafos" placeholder="grafos">
+        </div>
+        <div class="field">
+          <label>Archivo</label>
+          <select id="archivo-select">
+            <option value="">— selecciona —</option>
+          </select>
+        </div>
+        <button class="btn-primary" style="font-weight:400;font-size:11px;margin-bottom:4px" onclick="cargarListaArchivos()">
+          Actualizar lista de archivos
+        </button>
+      </div>
+
+      <div id="grupo-manual" style="display:none">
+        <div class="field">
+          <label>Estado inicial</label><input id="m-inicio" placeholder="Ej: S">
+        </div>
+        <div class="field">
+          <label>Estado final</label><input id="m-meta" placeholder="Ej: G">
+        </div>
+        <div class="field">
+          <label>Transiciones (origen,destino,costo)</label>
+          <textarea id="m-trans" rows="5" placeholder="S,A,1&#10;S,B,4&#10;A,G,3"></textarea>
+        </div>
+        <div class="field">
+          <label>Heurísticas (nodo,valor)</label>
+          <textarea id="m-heur" rows="3" placeholder="S,5&#10;A,2&#10;G,0"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Algoritmo</div>
+      <div class="algo-grid">
+        <button class="algo-btn active" onclick="setAlgo('bfs',this)">BFS</button>
+        <button class="algo-btn" onclick="setAlgo('dfs',this)">DFS</button>
+        <button class="algo-btn" onclick="setAlgo('ucs',this)">UCS</button>
+        <button class="algo-btn" onclick="setAlgo('dls',this)">DLS</button>
+        <button class="algo-btn" onclick="setAlgo('iddfs',this)">IDDFS</button>
+        <button class="algo-btn" onclick="setAlgo('avara',this)">Avara</button>
+        <button class="algo-btn" onclick="setAlgo('astar',this)" style="grid-column:span 2">A*</button>
+      </div>
+      <div id="dls-group" class="field" style="margin-top:8px">
+        <label>Límite de profundidad</label>
+        <input type="number" id="dls-limit" value="5" min="1" max="30">
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-buscar" onclick="ejecutarBusqueda()">Ejecutar búsqueda</button>
+
+    <div id="status" class="status-box">Carga un grafo y presiona Ejecutar.</div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#FAEEDA;border-color:#BA7517"></div>Expandiendo
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#E6F1FB;border-color:#185FA5"></div>Genera
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#E1F5EE;border-color:#0F6E56"></div>Frontera
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#EEEDFE;border-color:#534AB7"></div>Visitado
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#EAF3DE;border-color:#3B6D11"></div>Meta
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Canvas ── -->
+  <main class="main">
+    <div class="canvas-area" id="canvas-area">
+      <canvas id="c"></canvas>
+      <div class="hint">Arrastra nodos · Rueda = zoom · Ctrl+/- = zoom · Fondo = pan</div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomBy(-0.15)" title="Alejar (Ctrl -)">−</button>
+        <span id="zoom-label">100%</span>
+        <button class="zoom-btn" onclick="zoomBy(+0.15)" title="Acercar (Ctrl +)">+</button>
+        <button class="zoom-btn" onclick="fitView()" title="Ajustar todo" style="font-size:11px">⊡</button>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="controls-bar">
+        <button class="ctrl-btn" onclick="reset()">↺ Reiniciar</button>
+        <button class="ctrl-btn" id="btn-prev" onclick="stepBack()" disabled>← Anterior</button>
+        <span id="iter-label">Ejecuta una búsqueda para comenzar</span>
+        <button class="ctrl-btn" id="btn-next" onclick="stepForward()" disabled>Siguiente →</button>
+        <button class="ctrl-btn" id="btn-auto" onclick="toggleAuto()">▶ Auto</button>
+      </div>
+
+      <div class="log-area">
+        <div class="log-panel">
+          <div class="log-head">Expansión por iteración</div>
+          <table class="log-table" id="log-table">
+            <thead><tr><th>#</th><th>Nodo</th><th>Genera</th><th>Costo</th></tr></thead>
+            <tbody id="log-body"></tbody>
+          </table>
+        </div>
+        <div class="log-panel">
+          <div class="log-head">Frontera / Cola actual</div>
+          <div id="frontier-panel" style="padding:10px 12px">
+            <div style="font-size:12px;color:var(--muted)">La frontera aparece aquí durante la búsqueda.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ─── Estado global ────────────────────────────────────────────────────────────
+let pasos=[], aristas=[], nodos=[], inicio='', meta='', heuristica={};
+let posiciones={};
+let stepIdx=-1, algo='bfs', autoTimer=null;
+
+// ─── Cámara (zoom + pan) ──────────────────────────────────────────────────────
+let cam = { x:0, y:0, scale:1 };
+let panStart = null;   // pan con fondo
+let dragging  = null;  // arrastrar nodo
+
+const canvas   = document.getElementById('c');
+const ctx      = canvas.getContext('2d');
+const area     = document.getElementById('canvas-area');
+let dpr = window.devicePixelRatio || 1;
+
+// ── Coordenadas mundo ↔ pantalla ──────────────────────────────────────────────
+function worldToScreen(wx, wy) {
+  return { x: wx * cam.scale + cam.x, y: wy * cam.scale + cam.y };
+}
+function screenToWorld(sx, sy) {
+  return { x: (sx - cam.x) / cam.scale, y: (sy - cam.y) / cam.scale };
+}
+function nx(n) { const p=posiciones[n]; return p ? worldToScreen(p.wx, p.wy).x : 0; }
+function ny(n) { const p=posiciones[n]; return p ? worldToScreen(p.wx, p.wy).y : 0; }
+
+// ─── Zoom ─────────────────────────────────────────────────────────────────────
+function zoomAt(sx, sy, delta) {
+  const minS = 0.15, maxS = 3.5;
+  const newScale = Math.min(maxS, Math.max(minS, cam.scale + delta));
+  const ratio = newScale / cam.scale;
+  cam.x = sx - (sx - cam.x) * ratio;
+  cam.y = sy - (sy - cam.y) * ratio;
+  cam.scale = newScale;
+  document.getElementById('zoom-label').textContent = Math.round(cam.scale*100)+'%';
+  draw();
+}
+function zoomBy(delta) {
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  zoomAt(W/2, H/2, delta);
+}
+
+function fitView() {
+  if (!nodos.length) return;
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  const pad = 60;
+  const xs = nodos.map(n=>posiciones[n]?.wx ?? 0);
+  const ys = nodos.map(n=>posiciones[n]?.wy ?? 0);
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  const minY=Math.min(...ys), maxY=Math.max(...ys);
+  const gw = maxX-minX || 1, gh = maxY-minY || 1;
+  const s = Math.min((W-pad*2)/gw, (H-pad*2)/gh, 3.5);
+  cam.scale = s;
+  cam.x = (W - gw*s)/2 - minX*s;
+  cam.y = (H - gh*s)/2 - minY*s;
+  document.getElementById('zoom-label').textContent = Math.round(s*100)+'%';
+  draw();
+}
+
+// ─── Layout automático (posiciones en espacio mundo) ─────────────────────────
+function autoLayout() {
+  posiciones={};
+  if (!nodos.length) return;
+  const W=800, H=600;   // espacio mundo fijo
+
+  const capas={}, vis=new Set(), adj={};
+  aristas.forEach(e=>{ adj[e.from]=adj[e.from]||[]; adj[e.from].push(e.to); });
+  const q=[[inicio,0]]; vis.add(inicio);
+  while(q.length){
+    const [n,l]=q.shift(); capas[n]=l;
+    (adj[n]||[]).forEach(nb=>{ if(!vis.has(nb)){vis.add(nb);q.push([nb,l+1]);} });
+  }
+  nodos.forEach(n=>{ if(capas[n]===undefined) capas[n]=0; });
+  const maxL=Math.max(...Object.values(capas),0);
+  const porCapa={};
+  nodos.forEach(n=>{ const l=capas[n]; porCapa[l]=porCapa[l]||[]; porCapa[l].push(n); });
+
+  Object.entries(porCapa).forEach(([l,ns])=>{
+    ns.forEach((n,i)=>{
+      posiciones[n]={
+        wx: 60 + (parseInt(l)/Math.max(maxL,1))*(W-120),
+        wy: 60 + (i/Math.max(ns.length-1,1))*(H-120),
+      };
+    });
+  });
+  cam={x:0,y:0,scale:1};
+  // Ajustar automáticamente al cargar
+  setTimeout(fitView,50);
+}
+
+// ─── Draw ─────────────────────────────────────────────────────────────────────
+function R() { return Math.max(14, Math.min(26, 22 * cam.scale)); }
+
+function resize() {
+  const W=area.offsetWidth, H=area.offsetHeight;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.scale(dpr,dpr);
+  draw();
+}
+
+function draw() {
+  const W=canvas.offsetWidth, H=canvas.offsetHeight;
+  // Fondo oscuro
+  ctx.fillStyle='#1e1f23'; ctx.fillRect(0,0,W,H);
+  // Grid sutil
+  ctx.strokeStyle='rgba(255,255,255,.04)'; ctx.lineWidth=1;
+  const step=40*cam.scale;
+  const ox=cam.x%step, oy=cam.y%step;
+  for(let x=ox;x<W;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=oy;y<H;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  if(!nodos.length) return;
+
+  const st=getStep();
+  const visitadosSet=new Set(st?.visitados||[]);
+  const fronteraSet =new Set(st?.frontera ||[]);
+  const hijosSet    =new Set(st?.hijos    ||[]);
+  const r=R();
+
+  // Camino actual resaltado
+  if(st?.camino_actual?.length>1){
+    for(let i=0;i<st.camino_actual.length-1;i++){
+      const a=st.camino_actual[i],b=st.camino_actual[i+1];
+      if(!posiciones[a]||!posiciones[b]) continue;
+      ctx.beginPath(); ctx.moveTo(nx(a),ny(a)); ctx.lineTo(nx(b),ny(b));
+      ctx.strokeStyle='rgba(186,117,23,.25)'; ctx.lineWidth=Math.max(8*cam.scale,4); ctx.stroke();
+    }
+  }
+
+  // Aristas
+  aristas.forEach(({from,to,cost})=>{
+    if(!posiciones[from]||!posiciones[to]) return;
+    const esCurr=st?.nodo===from && hijosSet.has(to);
+    ctx.beginPath(); ctx.moveTo(nx(from),ny(from)); ctx.lineTo(nx(to),ny(to));
+    ctx.strokeStyle=esCurr?'#EF9F27':'rgba(255,255,255,.18)';
+    ctx.lineWidth=esCurr?2.5*cam.scale:Math.max(1,cam.scale);
+    ctx.stroke();
+
+    // Flecha en arista activa
+    if(esCurr){
+      const ang=Math.atan2(ny(to)-ny(from),nx(to)-nx(from));
+      const ax=nx(to)-Math.cos(ang)*(r+2),ay=ny(to)-Math.sin(ang)*(r+2);
+      ctx.beginPath();
+      ctx.moveTo(ax,ay);
+      ctx.lineTo(ax-9*cam.scale*Math.cos(ang-.4),ay-9*cam.scale*Math.sin(ang-.4));
+      ctx.moveTo(ax,ay);
+      ctx.lineTo(ax-9*cam.scale*Math.cos(ang+.4),ay-9*cam.scale*Math.sin(ang+.4));
+      ctx.strokeStyle='#EF9F27'; ctx.lineWidth=2; ctx.stroke();
+    }
+
+    // Costo en arista
+    if(cam.scale>0.45){
+      const mx=(nx(from)+nx(to))/2, my=(ny(from)+ny(to))/2;
+      const dx=nx(to)-nx(from),dy=ny(to)-ny(from),len=Math.sqrt(dx*dx+dy*dy);
+      const px=-dy/len*11,py=dx/len*11;
+      ctx.font=`${Math.max(9,10*cam.scale)}px system-ui`;
+      ctx.fillStyle=esCurr?'#EF9F27':'rgba(255,255,255,.35)';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(cost,mx+px,my+py);
+    }
+  });
+
+  // Nodos
+  nodos.forEach(n=>{
+    if(!posiciones[n]) return;
+    const x=nx(n),y=ny(n);
+    const esCurr    =st?.nodo===n;
+    const esGoal    =n===meta;
+    const esVisitado=visitadosSet.has(n);
+    const esFrontera=fronteraSet.has(n);
+    const esHijo    =hijosSet.has(n);
+
+    let bg,stroke,textC;
+    if(esCurr)                  {bg='#FAEEDA';stroke='#EF9F27';textC='#633806';}
+    else if(esGoal&&esVisitado) {bg='#EAF3DE';stroke='#5BBE30';textC='#27500A';}
+    else if(esVisitado)         {bg='#EEEDFE';stroke='#7B72E9';textC='#3C3489';}
+    else if(esHijo)             {bg='#E6F1FB';stroke='#4D9FE8';textC='#0C447C';}
+    else if(esFrontera)         {bg='#E1F5EE';stroke='#3EC49A';textC='#085041';}
+    else                        {bg='#2c2d33';stroke='rgba(255,255,255,.25)';textC='rgba(255,255,255,.75)';}
+
+    // Halo nodo actual
+    if(esCurr){
+      ctx.beginPath(); ctx.arc(x,y,r+7*cam.scale,0,Math.PI*2);
+      ctx.fillStyle='rgba(239,159,39,.15)'; ctx.fill();
+    }
+
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=bg; ctx.fill();
+    ctx.strokeStyle=stroke; ctx.lineWidth=esCurr?2.5:1.5; ctx.stroke();
+
+    // Doble anillo en meta
+    if(esGoal){
+      ctx.beginPath(); ctx.arc(x,y,r-4,0,Math.PI*2);
+      ctx.strokeStyle=stroke; ctx.lineWidth=1; ctx.stroke();
+    }
+
+    // Nombre nodo
+    if(cam.scale>0.3){
+      const fs=Math.max(10,Math.min(14,13*cam.scale));
+      ctx.font=`600 ${fs}px system-ui`; ctx.fillStyle=textC;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(n,x,y);
+    }
+
+    // Etiquetas g/h/f/d
+    if(cam.scale>0.55){
+      const fs2=Math.max(8,10*cam.scale);
+      ctx.font=`${fs2}px system-ui`; ctx.fillStyle='rgba(255,255,255,.45)';
+      const showG=['ucs','astar'].includes(algo);
+      const showH=['avara','astar'].includes(algo);
+      if(showG && st?.costos_hijos?.[n]!==undefined)
+        ctx.fillText('g='+st.costos_hijos[n], x, y-r-9);
+      if(showH && heuristica[n]!==undefined)
+        ctx.fillText('h='+heuristica[n], x, y+r+10);
+      if(algo==='astar' && st?.costos_hijos?.[n]!==undefined && heuristica[n]!==undefined)
+        ctx.fillText('f='+(st.costos_hijos[n]+heuristica[n]), x, y+r+20);
+      if(['dls','iddfs'].includes(algo) && st?.depth!==undefined && esCurr)
+        ctx.fillText('d='+st.depth, x, y-r-9);
+    }
+  });
+}
+
+// ─── Mouse: zoom, pan, arrastrar nodos ───────────────────────────────────────
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const delta = e.deltaY < 0 ? 0.12 : -0.12;
+  zoomAt(sx,sy,delta);
+},{passive:false});
+
+canvas.addEventListener('mousedown', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const r=R();
+  // ¿Click en nodo?
+  let hitNode=null;
+  nodos.forEach(n=>{
+    const dx=nx(n)-sx, dy=ny(n)-sy;
+    if(dx*dx+dy*dy < r*r) hitNode=n;
+  });
+  if(hitNode){ dragging=hitNode; }
+  else { panStart={sx,sy,cx:cam.x,cy:cam.y}; area.style.cursor='grabbing'; }
+});
+
+canvas.addEventListener('mousemove', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  if(dragging){
+    const w=screenToWorld(sx,sy);
+    posiciones[dragging]={wx:w.x,wy:w.y};
+    draw();
+  } else if(panStart){
+    cam.x=panStart.cx+(sx-panStart.sx);
+    cam.y=panStart.cy+(sy-panStart.sy);
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseup', ()=>{
+  dragging=null; panStart=null; area.style.cursor='grab';
+});
+canvas.addEventListener('mouseleave', ()=>{
+  dragging=null; panStart=null; area.style.cursor='grab';
+});
+
+// Ctrl + / Ctrl -
+document.addEventListener('keydown', e=>{
+  if(e.ctrlKey && (e.key==='+' || e.key==='=')){
+    e.preventDefault(); zoomBy(0.15);
+  } else if(e.ctrlKey && e.key==='-'){
+    e.preventDefault(); zoomBy(-0.15);
+  } else if(e.ctrlKey && e.key==='0'){
+    e.preventDefault(); fitView();
+  }
+});
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function setAlgo(a,btn){
+  algo=a;
+  document.querySelectorAll('.algo-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('dls-group').style.display=(a==='dls')?'flex':'none';
+}
+function toggleFuente(){
+  const v=document.getElementById('fuente').value;
+  document.getElementById('grupo-archivo').style.display=v==='archivo'?'block':'none';
+  document.getElementById('grupo-manual').style.display =v==='manual' ?'block':'none';
+}
+function setStatus(msg,tipo=''){
+  const el=document.getElementById('status');
+  el.textContent=msg; el.className='status-box '+tipo;
+}
+
+async function cargarListaArchivos(){
+  const carpeta=document.getElementById('carpeta').value||'grafos';
+  try{
+    const r=await fetch(`/api/grafos?carpeta=${encodeURIComponent(carpeta)}`);
+    const d=await r.json();
+    const sel=document.getElementById('archivo-select');
+    sel.innerHTML='<option value="">— selecciona —</option>';
+    (d.archivos||[]).forEach(f=>{
+      const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o);
+    });
+    if(d.error) setStatus(d.error,'error');
+    else setStatus(`${d.archivos.length} archivo(s) encontrados.`);
+  }catch(e){ setStatus('No se pudo conectar con Flask.','error'); }
+}
+
+// ─── Ejecutar búsqueda ────────────────────────────────────────────────────────
+async function ejecutarBusqueda(){
+  const fuente=document.getElementById('fuente').value;
+  const payload={algoritmo:algo,fuente,limite_dls:parseInt(document.getElementById('dls-limit').value)||5,limite_iddfs:15};
+  if(fuente==='archivo'){
+    payload.carpeta=document.getElementById('carpeta').value||'grafos';
+    payload.archivo=document.getElementById('archivo-select').value;
+    if(!payload.archivo){setStatus('Selecciona un archivo primero.','error');return;}
+  } else {
+    payload.inicio=document.getElementById('m-inicio').value.trim();
+    payload.meta  =document.getElementById('m-meta').value.trim();
+    payload.grafo =parsearTransiciones(document.getElementById('m-trans').value);
+    payload.heuristica=parsearHeuristicas(document.getElementById('m-heur').value);
+  }
+  setStatus('Ejecutando…');
+  document.getElementById('btn-buscar').disabled=true;
+  try{
+    const r=await fetch('/api/buscar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(d.error){setStatus(d.error,'error');return;}
+    pasos=d.pasos||[]; aristas=d.aristas||[]; nodos=d.nodos||[];
+    inicio=d.inicio; meta=d.meta; heuristica=d.heuristica||{};
+    autoLayout();
+    reset();
+    const ultimo=pasos.filter(p=>!p.separador).at(-1);
+    if(ultimo?.es_meta) setStatus(`¡Meta encontrada! ${pasos.filter(p=>!p.separador).length} iteraciones.`,'ok');
+    else setStatus(`Búsqueda completa. ${pasos.filter(p=>!p.separador).length} iteraciones. No se alcanzó la meta.`);
+  }catch(e){setStatus('Error de red: '+e.message,'error');}
+  finally{document.getElementById('btn-buscar').disabled=false;}
+}
+
+function parsearTransiciones(txt){
+  const grafo={};
+  txt.split('\n').forEach(l=>{
+    l=l.trim(); if(!l) return;
+    const p=l.split(','); if(p.length<3) return;
+    const [o,d,c]=[p[0].trim(),p[1].trim(),parseFloat(p[2])];
+    grafo[o]=grafo[o]||[]; grafo[o].push([d,c]); grafo[d]=grafo[d]||[];
+  });
+  return grafo;
+}
+function parsearHeuristicas(txt){
+  const h={};
+  txt.split('\n').forEach(l=>{
+    l=l.trim(); if(!l) return;
+    const p=l.split(','); if(p.length>=2) h[p[0].trim()]=parseFloat(p[1]);
+  });
+  return h;
+}
+
+// ─── Paso a paso ──────────────────────────────────────────────────────────────
+function getStep(){ return stepIdx>=0&&pasos.length?pasos[stepIdx]:null; }
+
+function reset(){
+  stopAuto(); stepIdx=-1; updateUI(); draw();
+}
+function stepForward(){
+  if(stepIdx<pasos.length-1){stepIdx++;updateUI();draw();}
+}
+function stepBack(){
+  if(stepIdx>0) stepIdx--;
+  else if(stepIdx===0) stepIdx=-1;
+  updateUI(); draw();
+}
+function toggleAuto(){
+  if(autoTimer){stopAuto();return;}
+  document.getElementById('btn-auto').textContent='⏸ Pausa';
+  document.getElementById('btn-auto').classList.add('auto-on');
+  autoTimer=setInterval(()=>{
+    if(stepIdx<pasos.length-1) stepForward(); else stopAuto();
+  },800);
+}
+function stopAuto(){
+  if(autoTimer){clearInterval(autoTimer);autoTimer=null;}
+  document.getElementById('btn-auto').textContent='▶ Auto';
+  document.getElementById('btn-auto').classList.remove('auto-on');
+}
+
+// ─── Actualizar tabla de log y frontera ──────────────────────────────────────
+function updateUI(){
+  document.getElementById('btn-prev').disabled=stepIdx<=0;
+  document.getElementById('btn-next').disabled=stepIdx>=pasos.length-1||!pasos.length;
+
+  const el=document.getElementById('iter-label');
+  if(stepIdx<0||!pasos.length){ el.textContent='Iteración 0 — presiona Siguiente'; }
+  else {
+    const s=pasos[stepIdx];
+    if(s.separador){ el.textContent=s.mensaje; }
+    else {
+      let t=`Iter. ${stepIdx+1}  →  Expandiendo: ${s.nodo}`;
+      if(s.hijos?.length) t+=`  genera: ${s.hijos.join(', ')}`;
+      if(s.corte) t+='  [límite alcanzado]';
+      if(s.f!==undefined) t+=`  f=${s.f}`;
+      else if(s.g!==undefined) t+=`  g=${s.g}`;
+      if(s.es_meta) t+='  ✓ ¡Meta!';
+      el.textContent=t;
+    }
+  }
+
+  // Tabla log
+  const tbody=document.getElementById('log-body');
+  tbody.innerHTML='';
+  pasos.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    if(s.separador){
+      tr.className='sep-row';
+      tr.innerHTML=`<td colspan="4">${s.mensaje}</td>`;
+    } else {
+      if(i===stepIdx) tr.className='active-row';
+      let costo='—';
+      if(s.f!==undefined) costo=`f=${s.f}`;
+      else if(s.h!==undefined) costo=`h=${s.h}`;
+      else if(s.g!==undefined) costo=`g=${s.g}`;
+      tr.innerHTML=`<td style="color:var(--muted)">${i+1}</td><td><b>${s.nodo}</b></td><td>${(s.hijos||[]).join(', ')||'—'}</td><td style="color:var(--muted)">${costo}</td>`;
+    }
+    tbody.appendChild(tr);
+    if(i===stepIdx) tr.scrollIntoView({block:'nearest'});
+  });
+
+  // Frontera
+  const fp=document.getElementById('frontier-panel');
+  if(stepIdx<0||!pasos.length){
+    fp.innerHTML='<div style="font-size:12px;color:var(--muted)">La frontera aparece aquí durante la búsqueda.</div>'; return;
+  }
+  const s=pasos[stepIdx];
+  if(s.separador){fp.innerHTML=`<div style="font-size:12px;color:var(--muted);font-style:italic">${s.mensaje}</div>`;return;}
+
+  const fl=s.frontera||[];
+  let html='';
+  if(!fl.length){ html='<div style="font-size:12px;color:var(--muted)">Frontera vacía</div>'; }
+  else {
+    html='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
+    fl.forEach((n,i)=>{
+      let label=n;
+      if(s.costos_hijos?.[n]!==undefined) label+=` (g=${s.costos_hijos[n]})`;
+      if(heuristica[n]!==undefined&&['avara','astar'].includes(algo)) label+=` h=${heuristica[n]}`;
+      const first=i===0?'border-color:#BA7517':'';
+      html+=`<span class="f-node" style="${first}">${label}</span>`;
+    });
+    html+='</div>';
+  }
+  const ordenMap={
+    bfs:'FIFO — primero en entrar, primero en salir',
+    dfs:'LIFO — último en entrar, primero en salir',
+    ucs:'Ordenada por g(n) creciente',
+    dls:'Pila — profundidad con límite',
+    iddfs:'Pila — profundidad iterativa',
+    avara:'Ordenada por h(n) creciente',
+    astar:'Ordenada por f(n) = g(n) + h(n)',
+  };
+  html+=`<div style="font-size:11px;color:var(--muted)">${ordenMap[algo]||''}</div>`;
+  fp.innerHTML=html;
+}
+
+window.addEventListener('resize', resize);
+resize();
+cargarListaArchivos();
+</script>
+</body>
+</html>
