@@ -1,12 +1,17 @@
 from algoritmos import *
 import os
 
-def cargar_desde_archivo(ruta):
-    grafo = {}
-    heuristica = {}
-    inicio = None
-    meta = None
-    seccion = None
+def cargar_desde_archivo(ruta:str) -> tuple[
+    dict[str, list[tuple[str, float]]],
+    dict[str, float],
+    str | None,
+    str | None
+]:
+    grafo:dict[str, list[tuple[str, float]]] = {}
+    heuristica:dict[str, float] = {}
+    inicio:str | None = None
+    meta:str | None = None
+    seccion:str | None = None
     
     with open(ruta, 'r') as f:
         for linea in f:
@@ -27,7 +32,7 @@ def cargar_desde_archivo(ruta):
                 elif seccion == 'meta':
                     meta = linea
                 elif seccion == 'transiciones':
-                    partes = linea.split(',')
+                    partes:list[str] = linea.split(',')
                     origen, destino, costo = partes[0], partes[1], float(partes[2])
                     grafo.setdefault(origen, []).append((destino, costo))
                     grafo.setdefault(destino, [])
@@ -37,30 +42,34 @@ def cargar_desde_archivo(ruta):
                     
     return grafo, heuristica, inicio, meta
 
-#Escribir tu propio grafo
-def capturar_en_linea():
+def capturar_en_linea() -> tuple[
+    dict[str, list[tuple[str, float]]],
+    dict[str, float],
+    str,
+    str
+]:
     while(True):
-        inicio = input("Estado inicial: ").strip()
+        inicio:str = input("Estado inicial: ").strip()
         if inicio == "":
             print("Debe ingresar un estado inicial")
         else:
             break
     while(True):
-        meta = input("Estado final: ").strip()
+        meta:str = input("Estado final: ").strip()
         if meta == "":
             print("Debe ingresar un estado final")
         else:
             break
     
-    grafo = {}
-    heuristica = {}
+    grafo:dict[str, list[tuple[str, float]]]  = {}
+    heuristica:dict[str, float] = {}
     
     #cuanto cuesta pasar al siguiente nodo
     
     print("\nIngresa las transiciones en formato: origen,destino,costo")
     print("(Escribe 'fin' para terminar)")
     while True:
-        linea = input("Transición: ").strip()
+        linea:str = input("Transición: ").strip()
         if linea.lower() == 'fin':
             break
         try:
@@ -75,7 +84,7 @@ def capturar_en_linea():
     print("\nIngresa las heurísticas en formato: nodo,valor")
     print("(Escribe 'fin' para terminar)")
     while True:
-        linea = input("Heurística: ").strip()
+        linea:str = input("Heurística: ").strip()
         if linea.lower() == 'fin':
             break
         try:
@@ -106,7 +115,7 @@ def capturar_en_linea():
                 print("  Valor inválido.")
     return grafo, heuristica, inicio, meta
 
-def mostrar_resultado(nombre, camino, costo=None, limite=None):
+def mostrar_resultado(nombre:str, camino:list[str] | None, costo:float | None =None, limite:int | None =None)-> None:
     print(f"\n{'='*70}")
     print(f"  Algoritmo: {nombre}")
     print(f"{'='*70}")
@@ -123,7 +132,7 @@ def mostrar_resultado(nombre, camino, costo=None, limite=None):
 #Menu pricipal
 def menu():
     print("\n" + "="*70)
-    print("   PIA - ALGORITMOS DE BÚSQUEDA  (Inteligencia Artificail FCFM)")
+    print("   PIA - ALGORITMOS DE BÚSQUEDA  (Inteligencia Artificial FCFM)")
     print("   Luis Fernando Segobia Torres \t2177528")
     print("   Angel Joseph Meraz Hernandez \t2067151")
     print("="*70)

@@ -1,9 +1,9 @@
 import heapq
 from collections import deque
 
-def amplitud_bfs(inicio, meta, grafo):
-    cola = deque([(inicio, [inicio])])
-    visitados = set([inicio])
+def amplitud_bfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]]) ->list[str] | None:
+    cola:deque[tuple[str, list[str]]] = deque([(inicio, [inicio])])
+    visitados:set[str] = set([inicio])
     
     while cola:
         actual, camino = cola.popleft()
@@ -18,9 +18,9 @@ def amplitud_bfs(inicio, meta, grafo):
                 
     return None
 
-def costo_uniforme_ucs(inicio, meta, grafo):
-    heap = [(0, inicio, [inicio])]
-    visitados = {}
+def costo_uniforme_ucs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]]) -> tuple[list[str] | None, float]:
+    heap:list[tuple[float, str, list[str]]] = [(0, inicio, [inicio])]
+    visitados:list[tuple[float, str, list[str]]] = {}
     
     while heap:
         costo, actual, camino = heapq.heappop(heap)
@@ -33,15 +33,15 @@ def costo_uniforme_ucs(inicio, meta, grafo):
         visitados[actual] = costo
         
         for vecino, peso in grafo.get(actual, []):
-            nuevo_costo = costo + peso
+            nuevo_costo:float = costo + peso
             if vecino not in visitados or visitados[vecino] > nuevo_costo:
                 heapq.heappush(heap, (nuevo_costo, vecino, camino + [vecino]))
                 
     return None, float('inf')
 
-def profundidad_dfs(inicio, meta, grafo):
-    pila = [(inicio, [inicio])]
-    visitados = set()
+def profundidad_dfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]])-> list[str] | None:
+    pila:list[tuple[str, list[str]]] = [(inicio, [inicio])]
+    visitados:set[str] = set()
     
     while pila:
         actual, camino = pila.pop()
@@ -60,8 +60,8 @@ def profundidad_dfs(inicio, meta, grafo):
                 
     return None
 
-def profundidad_limitada_dls(inicio, meta, grafo, limite):
-    def dfs(nodo, profundidad, camino):
+def profundidad_limitada_dls(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], limite:int)-> tuple[list[str] | None, int | None]:
+    def dfs(nodo:str, profundidad:int, camino:list[str]):
         if nodo == meta:
             return camino, profundidad
         
@@ -70,16 +70,16 @@ def profundidad_limitada_dls(inicio, meta, grafo, limite):
         
         for vecino, _ in grafo.get(nodo, []):
             if vecino not in camino:  #evita ciclos
-                resultado = dfs(vecino, profundidad + 1, camino + [vecino])
+                resultado:tuple[list[str], int] | None = dfs(vecino, profundidad + 1, camino + [vecino])
                 if resultado:
                     return resultado
         return None
-    resultado = dfs(inicio, 0, [inicio])
+    resultado:tuple[list[str], int] | None = dfs(inicio, 0, [inicio])
     if resultado:
         return resultado  #camino, profundidad_real
     return None, None
 
-def profundidad_iterativa_iddfs(inicio, meta, grafo, limite_max=50):
+def profundidad_iterativa_iddfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], limite_max=50) -> tuple[list[str] | None, int]:
     for limite in range(limite_max + 1):
         resultado, _ = profundidad_limitada_dls(inicio, meta, grafo, limite)
         if resultado is not None:
@@ -87,9 +87,9 @@ def profundidad_iterativa_iddfs(inicio, meta, grafo, limite_max=50):
         
     return None, -1
 
-def busqueda_avara(inicio, meta, grafo, heuristica):
-    heap = [(heuristica.get(inicio, 0), inicio, [inicio])]
-    visitados = set()
+def busqueda_avara(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], heuristica:dict[str, float])-> list[str] | None:
+    heap:list[tuple[float, str, list[str]]] = [(heuristica.get(inicio, 0), inicio, [inicio])]
+    visitados:set[str] = set()
     
     while heap:
         h, actual, camino = heapq.heappop(heap)
@@ -108,10 +108,10 @@ def busqueda_avara(inicio, meta, grafo, heuristica):
                 
     return None
 
-def busqueda_a_estrella(inicio, meta, grafo, heuristica):
-    heap = [(heuristica.get(inicio, 0), 0, inicio, [inicio])]
+def busqueda_a_estrella(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], heuristica:dict[str, float]):
+    heap:list[tuple[float, float, str, list[str]]] = [(heuristica.get(inicio, 0), 0, inicio, [inicio])]
     # costo_min: menor g(n) conocido para cada nodo
-    costo_min = {inicio: 0}
+    costo_min:dict[str, float] = {inicio: 0}
     
     while heap:
         f, g, actual, camino = heapq.heappop(heap)
