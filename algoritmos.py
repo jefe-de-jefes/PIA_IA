@@ -2,7 +2,7 @@ import heapq
 from collections import deque
 
 
-def _costo_camino(camino, grafo):
+def costo_camino(camino, grafo):
     total = 0
     for i in range(len(camino) - 1):
         for vecino, peso in grafo.get(camino[i], []):
@@ -12,7 +12,7 @@ def _costo_camino(camino, grafo):
     return total
 
 
-def _imprimir_pasos(pasos, camino, grafo=None, mostrar_costo=False, etiqueta_costo='Nivel', mostrar_f=False, mostrar_saltos=False):
+def imprimir_pasos(pasos, camino, grafo=None, mostrar_costo=False, etiqueta_costo='Nivel', mostrar_f=False, mostrar_saltos=False):
     if mostrar_saltos and mostrar_costo:
         col_header = f"{'Saltos':<8} {etiqueta_costo}"
     elif mostrar_costo:
@@ -45,62 +45,50 @@ def _imprimir_pasos(pasos, camino, grafo=None, mostrar_costo=False, etiqueta_cos
 
         print(f"  {marca}{i:<4} {nodo:<22} {hijos_str:<30} {extra}")
 
-    costo_final = _costo_camino(camino, grafo) if grafo else pasos[-1][2]
-    saltos      = len(camino) - 1
-
-    print(f"\n  Camino final : {' -> '.join(camino)}")
-    print(f"  Costo total  : {costo_final:.1f}")
-    if mostrar_saltos:
-        print(f"  Saltos       : {saltos}")
-    print()
 
 
-def amplitud_bfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], verbose=False) -> list[str] | None:
+def amplitud_bfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]]) -> tuple[list[str] | None, list]:
     cola:deque[tuple[str, list[str]]] = deque([(inicio, [inicio])])
     visitados:set[str] = set([inicio])
-    pasos = []
+    pasos:list[tuple[str, list[str], int, bool]] = []
 
     while cola:
         actual, camino = cola.popleft()
 
         if actual == meta:
-            costo_r = _costo_camino(camino, grafo)
+            costo_r:float = costo_camino(camino, grafo)
             pasos.append((actual, [], len(camino) - 1, True, costo_r))
-            if verbose:
-                _imprimir_pasos(pasos, camino, grafo, mostrar_saltos=True, mostrar_costo=True)
-            return camino
+            return camino, pasos
 
-        hijos = []
+        hijos:list[str] = []
         for vecino, _ in grafo.get(actual, []):
             if vecino not in visitados:
                 visitados.add(vecino)
                 cola.append((vecino, camino + [vecino]))
                 hijos.append(vecino)
-        costo_r = _costo_camino(camino, grafo)
+        costo_r = costo_camino(camino, grafo)
         pasos.append((actual, hijos, len(camino) - 1, False, costo_r))
 
-    return None
+    return None, pasos
 
 
-def costo_uniforme_ucs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], verbose=False) -> tuple[list[str] | None, float]:
+def costo_uniforme_ucs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]]) -> tuple[list[str] | None, float, list]:
     heap:list[tuple[float, str, list[str]]] = [(0, inicio, [inicio])]
     visitados:dict[str, float] = {}
-    pasos = []
+    pasos:list[tuple[str, list[str], float, bool]] = []
 
     while heap:
         costo, actual, camino = heapq.heappop(heap)
 
         if actual == meta:
             pasos.append((actual, [], costo, True))
-            if verbose:
-                _imprimir_pasos(pasos, camino, mostrar_costo=True, etiqueta_costo='g(n)')
-            return camino, costo
+            return camino, costo, pasos
 
         if actual in visitados and visitados[actual] <= costo:
             continue
         visitados[actual] = costo
 
-        hijos = []
+        hijos:list[str] = []
         for vecino, peso in grafo.get(actual, []):
             nuevo_costo:float = costo + peso
             if vecino not in visitados or visitados[vecino] > nuevo_costo:
@@ -108,13 +96,13 @@ def costo_uniforme_ucs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, flo
                 hijos.append(vecino)
         pasos.append((actual, hijos, costo, False))
 
-    return None, float('inf')
+    return None, float('inf'), pasos
 
 
-def profundidad_dfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], verbose=False) -> list[str] | None:
+def profundidad_dfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]]) -> tuple[list[str] | None, list]:
     pila:list[tuple[str, list[str]]] = [(inicio, [inicio])]
     visitados:set[str] = set()
-    pasos = []
+    pasos:list[tuple[str, list[str], int, bool]] = []
 
     while pila:
         actual, camino = pila.pop()
@@ -124,71 +112,67 @@ def profundidad_dfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]
         visitados.add(actual)
 
         if actual == meta:
-            costo_r = _costo_camino(camino, grafo)
+            costo_r = costo_camino(camino, grafo)
             pasos.append((actual, [], len(camino) - 1, True, costo_r))
-            if verbose:
-                _imprimir_pasos(pasos, camino, grafo, mostrar_saltos=True, mostrar_costo=True)
-            return camino
+            return camino, pasos
 
         hijos = []
         for vecino, _ in reversed(grafo.get(actual, [])):
             if vecino not in visitados:
                 pila.append((vecino, camino + [vecino]))
                 hijos.append(vecino)
-        costo_r = _costo_camino(camino, grafo)
+        costo_r = costo_camino(camino, grafo)
         pasos.append((actual, hijos, len(camino) - 1, False, costo_r))
 
-    return None
+    return None, pasos
 
 
-def profundidad_limitada_dls(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], limite:int, verbose=False) -> tuple[list[str] | None, int | None]:
-    pasos = []
+def profundidad_limitada_dls(inicio: str, meta: str, grafo: dict[str, list[tuple[str, float]]], limite: int) -> tuple[list[str] | None, int | None, list]:
+    pasos:list = []
 
     def dfs(nodo:str, profundidad:int, camino:list[str]):
         if nodo == meta:
-            costo_r = _costo_camino(camino, grafo)
-            pasos.append((nodo, [], profundidad, True, costo_r))
-            return camino, profundidad
+            costo_r = costo_camino(camino, grafo)
+            pasos.append((nodo, [], profundidad, True, costo_r, 0.0))
+            return camino, profundidad, pasos
 
         if profundidad == limite:
-            pasos.append((nodo, ['[límite]'], profundidad, False, 0))
-            return None
+            pasos.append((nodo, ['[límite]'], profundidad, False, 0.0, 0.0))
+            return None, None, None
 
         hijos = [v for v, _ in grafo.get(nodo, []) if v not in camino]
-        costo_r = _costo_camino(camino, grafo)
-        pasos.append((nodo, hijos, profundidad, False, costo_r))
+        costo_r = costo_camino(camino, grafo)
+        pasos.append((nodo, hijos, profundidad, False, costo_r, 0.0))
 
         for vecino, _ in grafo.get(nodo, []):
             if vecino not in camino:
-                resultado = dfs(vecino, profundidad + 1, camino + [vecino])
-                if resultado:
-                    return resultado
-        return None
+                res_camino, res_prof, res_pasos = dfs(vecino, profundidad + 1, camino + [vecino])
+                if res_camino:
+                    return res_camino, res_prof, res_pasos
+        
+        return None, None, None
 
-    resultado = dfs(inicio, 0, [inicio])
-    if verbose and resultado:
-        _imprimir_pasos(pasos, resultado[0], grafo, mostrar_saltos=True, mostrar_costo=True, etiqueta_costo='Prof.')
-    if resultado:
-        return resultado
-    return None, None
+    resultado_camino, resultado_prof, _ = dfs(inicio, 0, [inicio])
+    
+    return resultado_camino, resultado_prof, pasos
 
 
-def profundidad_iterativa_iddfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], limite_max=50, verbose=False) -> tuple[list[str] | None, int]:
+def profundidad_iterativa_iddfs(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], limite_max=50) -> tuple[list[str] | None, int, list]:
     for limite in range(limite_max + 1):
-        if verbose:
-            print(f"  [IDDFS] Probando limite = {limite}...")
-        resultado, _ = profundidad_limitada_dls(inicio, meta, grafo, limite)
-        if resultado is not None:
-            if verbose:
-                profundidad_limitada_dls(inicio, meta, grafo, limite, verbose=True)
-            return resultado, limite
-    return None, -1
+        print(f"  [IDDFS] Probando limite = {limite}...")
+        
+        camino, prof_real, pasos = profundidad_limitada_dls(inicio, meta, grafo, limite)
+        
+        if camino is not None:
+            return camino, limite, pasos
+            
+    return None, -1, []
 
 
-def busqueda_avara(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], heuristica:dict[str, float], verbose=False) -> list[str] | None:
+def busqueda_avara(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], heuristica:dict[str, float]) -> tuple[list[str] | None, list]:
     heap:list[tuple[float, str, list[str]]] = [(heuristica.get(inicio, 0), inicio, [inicio])]
     visitados:set[str] = set()
-    pasos = []
+    pasos:list[tuple[str, list[str], float, bool, float]] = []
 
     while heap:
         h, actual, camino = heapq.heappop(heap)
@@ -198,11 +182,9 @@ def busqueda_avara(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]
         visitados.add(actual)
 
         if actual == meta:
-            costo_r = _costo_camino(camino, grafo)
+            costo_r = costo_camino(camino, grafo)
             pasos.append((actual, [], h, True, costo_r))
-            if verbose:
-                _imprimir_pasos(pasos, camino, grafo, mostrar_costo=True, etiqueta_costo='h(n)')
-            return camino
+            return camino, pasos
 
         hijos = []
         for vecino, _ in grafo.get(actual, []):
@@ -210,13 +192,13 @@ def busqueda_avara(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]
                 h_vecino = heuristica.get(vecino, 0)
                 heapq.heappush(heap, (h_vecino, vecino, camino + [vecino]))
                 hijos.append(vecino)
-        costo_r = _costo_camino(camino, grafo)
+        costo_r = costo_camino(camino, grafo)
         pasos.append((actual, hijos, h, False, costo_r))
 
-    return None
+    return None, pasos
 
 
-def busqueda_a_estrella(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], heuristica:dict[str, float], verbose=False):
+def busqueda_a_estrella(inicio:str, meta:str, grafo:dict[str, list[tuple[str, float]]], heuristica:dict[str, float])-> tuple[list[str] | None, float, list]:
     heap:list[tuple[float, float, str, list[str]]] = [(heuristica.get(inicio, 0), 0, inicio, [inicio])]
     costo_min:dict[str, float] = {inicio: 0}
     pasos = []
@@ -226,21 +208,19 @@ def busqueda_a_estrella(inicio:str, meta:str, grafo:dict[str, list[tuple[str, fl
 
         if actual == meta:
             pasos.append((actual, [], g, True, g, f))
-            if verbose:
-                _imprimir_pasos(pasos, camino, mostrar_costo=True, etiqueta_costo='g(n)', mostrar_f=True)
-            return camino, g
+            return camino, g, pasos
 
         if g > costo_min.get(actual, float('inf')):
             continue
 
-        hijos = []
+        hijos:list[str] = []
         for vecino, peso in grafo.get(actual, []):
-            nuevo_g = g + peso
+            nuevo_g:float = g + peso
             if nuevo_g < costo_min.get(vecino, float('inf')):
                 costo_min[vecino] = nuevo_g
-                nuevo_f = nuevo_g + heuristica.get(vecino, 0)
+                nuevo_f:float = nuevo_g + heuristica.get(vecino, 0)
                 heapq.heappush(heap, (nuevo_f, nuevo_g, vecino, camino + [vecino]))
                 hijos.append(vecino)
         pasos.append((actual, hijos, g, False, g, f))
 
-    return None, float('inf')
+    return None, float('inf'), pasos
