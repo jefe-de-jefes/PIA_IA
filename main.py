@@ -86,7 +86,7 @@ def capturar_en_linea() -> tuple[dict[str, list[tuple[str, float]]], dict[str, f
  
     print("\nValidando heuristicas...")
     for nodo in heuristica:
-        _, costo_real = costo_uniforme_ucs(nodo, meta, grafo)
+        _, costo_real, _ = costo_uniforme_ucs(nodo, meta, grafo)
         if costo_real == float('inf'):
             print(f"  El nodo {nodo} no deberia tener heuristica.")
             heuristica[nodo] = 0
