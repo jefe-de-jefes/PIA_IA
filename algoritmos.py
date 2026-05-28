@@ -12,7 +12,7 @@ def costo_camino(camino, grafo):
     return total
 
 
-def imprimir_pasos(pasos, camino, grafo=None, mostrar_costo=False, etiqueta_costo='Nivel', mostrar_f=False, mostrar_saltos=False):
+def imprimir_pasos(pasos, mostrar_costo=False, etiqueta_costo='Nivel', mostrar_f=False, mostrar_saltos=False):
     if mostrar_saltos and mostrar_costo:
         col_header = f"{'Saltos':<8} {etiqueta_costo}"
     elif mostrar_costo:

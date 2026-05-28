@@ -35,7 +35,7 @@ def cargar_desde_archivo(ruta:str) -> tuple[
                     partes:list[str] = linea.split(',')
                     origen, destino, costo = partes[0], partes[1], float(partes[2])
                     grafo.setdefault(origen, []).append((destino, costo))
-                    grafo.setdefault(destino, [])
+                    grafo.setdefault(destino, []).append((origen, costo))
                 elif seccion == 'heuristicas':
                     partes = linea.split(',')
                     heuristica[partes[0]] = float(partes[1])
@@ -68,7 +68,7 @@ def capturar_en_linea() -> tuple[dict[str, list[tuple[str, float]]], dict[str, f
         try:
             origen, destino, costo = linea.split(',')
             grafo.setdefault(origen.strip(), []).append((destino.strip(), float(costo)))
-            grafo.setdefault(destino.strip(), [])
+            grafo.setdefault(destino.strip(), []).append((origen.strip(), float(costo)))
         except ValueError:
             print("  Formato invalido. Usa: origen,destino,costo")
             
@@ -120,12 +120,12 @@ def imprimir_resumen(camino:list[str], costo:float=None, limite:int=None, saltos
     print("=" * 65)
  
 def configurar_grafo():
-    print("\n¿Cómo deseas ingresar el espacio de estados?")
+    print("\nComo deseas ingresar el espacio de estados?")
     opcion_fuente = '0'
     while opcion_fuente not in ('1', '2'):
         print("  1. Desde archivo de texto")
         print("  2. Captura en linea")
-        opcion_fuente = input("Opción: ").strip()
+        opcion_fuente = input("Opcion: ").strip()
  
         if opcion_fuente == '1':
             while True:
@@ -135,6 +135,9 @@ def configurar_grafo():
                     break
                 try:
                     grafo, heuristica, inicio, meta = cargar_desde_archivo(ruta)
+                    if inicio is None or meta is None:
+                        print("  El archivo debe contener un estado inicial y uno final.")
+                        continue
                     print(f"\n  Grafo cargado: inicio={inicio}, meta={meta}")
                     return grafo, heuristica, inicio, meta 
                 except FileNotFoundError:
@@ -172,7 +175,7 @@ def ejecutar_menu_algoritmos(grafo, heuristica, inicio, meta):
         imprimir_encabezado("Busqueda por amplitud (BFS)")
         camino, pasos = amplitud_bfs(inicio, meta, grafo)
         if pasos:
-            imprimir_pasos(pasos, camino, grafo, mostrar_saltos=True, mostrar_costo=True, etiqueta_costo='Costo g(n)')
+            imprimir_pasos(pasos, mostrar_saltos=True, mostrar_costo=True, etiqueta_costo='Costo g(n)')
         else:
             print("No se expandio ningun nodo")
         if camino:
@@ -184,7 +187,7 @@ def ejecutar_menu_algoritmos(grafo, heuristica, inicio, meta):
         imprimir_encabezado("Busqueda por costo uniforme (UCS)")
         camino, costo, pasos = costo_uniforme_ucs(inicio, meta, grafo)
         if pasos:
-            imprimir_pasos(pasos, camino, mostrar_costo=True, etiqueta_costo='g(n)')
+            imprimir_pasos(pasos, mostrar_costo=True, etiqueta_costo='g(n)')
         else:
             print("No se expandio ningun nodo")
         if camino:
@@ -196,7 +199,7 @@ def ejecutar_menu_algoritmos(grafo, heuristica, inicio, meta):
         imprimir_encabezado("Busqueda por Profundidad (DFS)")
         camino, pasos = profundidad_dfs(inicio, meta, grafo)
         if pasos:
-            imprimir_pasos(pasos, camino, grafo, mostrar_saltos=True, mostrar_costo=True)
+            imprimir_pasos(pasos, mostrar_saltos=True, mostrar_costo=True)
         else:
             print("No se expandio ningun nodo")
         if camino:
@@ -208,7 +211,7 @@ def ejecutar_menu_algoritmos(grafo, heuristica, inicio, meta):
         imprimir_encabezado("Busqueda por Profundidad limitada (DLS)")
         camino, profundidad_real, pasos = profundidad_limitada_dls(inicio, meta, grafo, limite_dls)
         if pasos:
-            imprimir_pasos(pasos, camino, grafo, mostrar_saltos=True, mostrar_costo=True, etiqueta_costo='Prof.')
+            imprimir_pasos(pasos, mostrar_saltos=True, mostrar_costo=True, etiqueta_costo='Prof.')
         else:
             print("No se expandio ningun nodo")
         if camino:
@@ -220,7 +223,7 @@ def ejecutar_menu_algoritmos(grafo, heuristica, inicio, meta):
         imprimir_encabezado("Busqueda por profundidad iterativa (IDDFS)")
         camino, limite_usado, pasos = profundidad_iterativa_iddfs(inicio, meta, grafo)
         if pasos:
-            imprimir_pasos(pasos, camino, grafo, mostrar_saltos=True, mostrar_costo=True, etiqueta_costo='Prof.')
+            imprimir_pasos(pasos, mostrar_saltos=True, mostrar_costo=True, etiqueta_costo='Prof.')
         else:
             print("No se expandio ningun nodo")
         if camino:
@@ -233,7 +236,7 @@ def ejecutar_menu_algoritmos(grafo, heuristica, inicio, meta):
         imprimir_encabezado("Busqueda Avara (Greedy)")
         camino, pasos = busqueda_avara(inicio, meta, grafo, heuristica)
         if pasos:
-            imprimir_pasos(pasos, camino, grafo, mostrar_costo=True, etiqueta_costo='h(n)')
+            imprimir_pasos(pasos, mostrar_costo=True, etiqueta_costo='h(n)')
         else:
             print("No se expandio ningun nodo")
         if camino:
@@ -247,7 +250,7 @@ def ejecutar_menu_algoritmos(grafo, heuristica, inicio, meta):
         imprimir_encabezado("Busqueda A*")
         camino, costo, pasos = busqueda_a_estrella(inicio, meta, grafo, heuristica)
         if pasos:
-            imprimir_pasos(pasos, camino, mostrar_costo=True, etiqueta_costo='g(n)', mostrar_f=True)
+            imprimir_pasos(pasos, mostrar_costo=True, etiqueta_costo='g(n)', mostrar_f=True)
         else:
             print("No se expandio ningun nodo")
         if camino:
