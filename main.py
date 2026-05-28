@@ -136,7 +136,7 @@ def configurar_grafo():
                 try:
                     grafo, heuristica, inicio, meta = cargar_desde_archivo(ruta)
                     if inicio is None or meta is None:
-                        print("  El archivo debe contener un estado inicial y uno final.")
+                        print("  El grafo que especifico no tiene un estado inicial del cual partir o al cual llegar, elija otro.")
                         continue
                     print(f"\n  Grafo cargado: inicio={inicio}, meta={meta}")
                     return grafo, heuristica, inicio, meta 
